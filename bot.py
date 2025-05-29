@@ -2,14 +2,17 @@ import requests
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from prettytable import PrettyTable
+import webbrowser
+import keyboard
+import threading
 from datetime import datetime
 
-# === CONFIGURAÇÃO ===
+# === CONFIG ===
 BITUNIX_PAIRS_URL = "https://fapi.bitunix.com/api/v1/futures/market/trading_pairs"
 BITUNIX_FUNDING_URL = "https://fapi.bitunix.com/api/v1/futures/market/funding_rate?symbol={}"
 BINANCE_FUNDING_URL = "https://fapi.binance.com/fapi/v1/premiumIndex?symbol={}"
 
-# Configuração do Telegram
+# === TELEGRAM CONFIG ===
 TELEGRAM_TOKEN = "7675636483:AAHmLQZuawOwO2jKFYZURMZH_7v2pTYOTNw"
 TELEGRAM_CHAT_ID = "-4892041521"
 
@@ -18,12 +21,12 @@ session_binance = requests.Session()
 
 TIMEOUT = 10
 
-# Códigos de cor ANSI
+# Códigos de cor ANSI (para terminal)
 AMARELO = "\033[93m"
 AZUL = "\033[94m"
 RESET = "\033[0m"
 
-moedas_ordenadas = []
+moedas_ordenadas = []  # Lista global para armazenar os pares ordenados
 
 
 def enviar_telegram(mensagem):
@@ -31,14 +34,15 @@ def enviar_telegram(mensagem):
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": mensagem,
-        "parse_mode": "HTML"
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True
     }
     try:
-        response = requests.post(url, json=payload)
+        response = requests.post(url, json=payload, timeout=10)
         if response.status_code != 200:
-            print(f"❌ Erro ao enviar para Telegram: {response.text}")
+            print(f"❌ Erro ao enviar mensagem Telegram: {response.text}")
     except Exception as e:
-        print(f"❌ Exceção ao enviar para Telegram: {e}")
+        print(f"❌ Erro no envio para Telegram: {e}")
 
 
 def obter_pares_bitunix():
@@ -108,10 +112,6 @@ def gerar_link_historico_binance(symbol):
     return "https://www.binance.com/en/futures/funding-history/perpetual/funding-fee-history"
 
 
-def gerar_link_bitunix(symbol):
-    return f"https://www.bitunix.com/pt-br/contract-trade/{symbol}/fund-fee"
-
-
 def comparar_funding(symbol):
     try:
         funding_bitunix = obter_funding_bitunix(symbol)
@@ -124,6 +124,20 @@ def comparar_funding(symbol):
     except:
         pass
     return None
+
+
+def monitorar_teclas():
+    while True:
+        for i in range(1, 10):
+            if keyboard.is_pressed(f"ctrl+{i}"):
+                if 0 <= i - 1 < len(moedas_ordenadas):
+                    symbol = moedas_ordenadas[i - 1]
+                    print(f"\n🔗 Abrindo links da moeda: {symbol}")
+                    link_bitunix = f"https://www.bitunix.com/pt-br/contract-trade/{symbol}/fund-fee"
+                    link_binance = gerar_link_historico_binance(symbol)
+                    webbrowser.open(link_bitunix)
+                    webbrowser.open(link_binance)
+                    time.sleep(1)  # Evita múltiplas aberturas seguidas
 
 
 def main():
@@ -147,8 +161,7 @@ def main():
         tabela.field_names = ["#", "Moeda", "Bitunix (%)", "Binance (%)", "Diferença (%)", "Próx. Funding Binance"]
 
         moedas_ordenadas = []
-
-        mensagem_telegram = "<b>🤑 Oportunidades de Funding Detectadas:</b>\n\n"
+        mensagem_telegram = "🚀 <b>ARBITRAGEM DE FUNDING DETECTADA</b> 🚀\n\n"
 
         for i, (symbol, fund_btx, fund_bnb, diff, horario_funding) in enumerate(
             sorted(resultados, key=lambda x: x[3], reverse=True), start=1
@@ -161,32 +174,36 @@ def main():
                 f"{AZUL}{diff:.6f}{RESET}",
                 horario_funding
             ])
-
             moedas_ordenadas.append(symbol)
 
+            link_bitunix = f"https://www.bitunix.com/pt-br/contract-trade/{symbol}/fund-fee"
             link_binance = gerar_link_historico_binance(symbol)
-            link_bitunix = gerar_link_bitunix(symbol)
 
             mensagem_telegram += (
-                f"#{i} - <b>{symbol}</b>\n"
-                f"Bitunix: {fund_btx:.6f}% | Binance: {fund_bnb:.6f}%\n"
-                f"💰 Diferença: <b>{diff:.6f}%</b>\n"
-                f"⏰ Próx. Funding Binance: {horario_funding}\n"
-                f"🔗 <a href='{link_bitunix}'>Bitunix</a> | <a href='{link_binance}'>Binance Histórico</a>\n\n"
+                f"🔸 <b>{symbol}</b>\n"
+                f"➖ Bitunix: <b>{fund_btx:.6f}%</b>\n"
+                f"➕ Binance: <b>{fund_bnb:.6f}%</b>\n"
+                f"📊 Diferença: <b>{diff:.6f}%</b>\n"
+                f"⏰ Funding Binance: {horario_funding}\n"
+                f"🔗 <a href='{link_bitunix}'>Bitunix</a> | <a href='{link_binance}'>Binance</a>\n\n"
             )
 
         print(tabela)
+        print("\n🖱️ Pressione Ctrl + número (1-9) para abrir os links da moeda correspondente.")
+
+        # Enviar mensagem no Telegram
         enviar_telegram(mensagem_telegram)
-        print("\n🚀 Sinais enviados para o Telegram.")
 
     else:
         moedas_ordenadas = []
-        aviso = "⚠️ Nenhuma arbitragem acima de 0.02% foi detectada."
-        print(aviso)
-        enviar_telegram(aviso)
+        print("⚠️ Nenhuma arbitragem acima de 0.02% foi detectada.")
+        enviar_telegram("⚠️ Nenhuma arbitragem acima de 0.02% foi detectada no momento.")
 
 
 if __name__ == "__main__":
+    # Inicia a thread para escutar teclas
+    threading.Thread(target=monitorar_teclas, daemon=True).start()
+
     while True:
         try:
             main()
