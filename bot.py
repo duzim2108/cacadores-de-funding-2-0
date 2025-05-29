@@ -2,9 +2,6 @@ import requests
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from prettytable import PrettyTable
-import webbrowser
-import keyboard
-import threading
 from datetime import datetime
 
 # === CONFIG ===
@@ -26,7 +23,7 @@ AMARELO = "\033[93m"
 AZUL = "\033[94m"
 RESET = "\033[0m"
 
-moedas_ordenadas = []  # Lista global para armazenar os pares ordenados
+moedas_ordenadas = []
 
 
 def enviar_telegram(mensagem):
@@ -126,20 +123,6 @@ def comparar_funding(symbol):
     return None
 
 
-def monitorar_teclas():
-    while True:
-        for i in range(1, 10):
-            if keyboard.is_pressed(f"ctrl+{i}"):
-                if 0 <= i - 1 < len(moedas_ordenadas):
-                    symbol = moedas_ordenadas[i - 1]
-                    print(f"\n🔗 Abrindo links da moeda: {symbol}")
-                    link_bitunix = f"https://www.bitunix.com/pt-br/contract-trade/{symbol}/fund-fee"
-                    link_binance = gerar_link_historico_binance(symbol)
-                    webbrowser.open(link_bitunix)
-                    webbrowser.open(link_binance)
-                    time.sleep(1)  # Evita múltiplas aberturas seguidas
-
-
 def main():
     global moedas_ordenadas
     print("🔍 Buscando pares disponíveis na Bitunix...")
@@ -189,8 +172,16 @@ def main():
             )
 
         print(tabela)
-        print("\n🖱️ Pressione Ctrl + número (1-9) para abrir os links da moeda correspondente.")
 
+        print("\n🔗 Links das moedas com arbitragem detectada:\n")
+        for idx, symbol in enumerate(moedas_ordenadas, start=1):
+            link_bitunix = f"https://www.bitunix.com/pt-br/contract-trade/{symbol}/fund-fee"
+            link_binance = gerar_link_historico_binance(symbol)
+            print(f"{idx}. {symbol}")
+            print(f"   Bitunix: {link_bitunix}")
+            print(f"   Binance: {link_binance}\n")
+
+        # Enviar mensagem no Telegram
         enviar_telegram(mensagem_telegram)
 
     else:
@@ -200,8 +191,6 @@ def main():
 
 
 if __name__ == "__main__":
-    threading.Thread(target=monitorar_teclas, daemon=True).start()
-
     while True:
         try:
             main()
