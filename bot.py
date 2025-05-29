@@ -191,7 +191,6 @@ def main():
         print(tabela)
         print("\n🖱️ Pressione Ctrl + número (1-9) para abrir os links da moeda correspondente.")
 
-        # Enviar mensagem no Telegram
         enviar_telegram(mensagem_telegram)
 
     else:
@@ -201,7 +200,6 @@ def main():
 
 
 if __name__ == "__main__":
-    # Inicia a thread para escutar teclas
     threading.Thread(target=monitorar_teclas, daemon=True).start()
 
     while True:
