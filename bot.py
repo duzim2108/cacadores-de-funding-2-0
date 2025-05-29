@@ -10,8 +10,8 @@ BITUNIX_FUNDING_URL = "https://fapi.bitunix.com/api/v1/futures/market/funding_ra
 BINANCE_FUNDING_URL = "https://fapi.binance.com/fapi/v1/premiumIndex?symbol={}"
 
 # === TELEGRAM CONFIG ===
-TELEGRAM_TOKEN = "7675636483:AAHmLQZuawOwO2jKFYZURMZH_7v2pTYOTNw"
-TELEGRAM_CHAT_ID = "-4892041521"
+TELEGRAM_TOKEN = "SEU_TOKEN_AQUI"
+TELEGRAM_CHAT_ID = "SEU_CHAT_ID_AQUI"
 
 session_bitunix = requests.Session()
 session_binance = requests.Session()
@@ -22,9 +22,6 @@ TIMEOUT = 10
 AMARELO = "\033[93m"
 AZUL = "\033[94m"
 RESET = "\033[0m"
-
-moedas_ordenadas = []
-
 
 def enviar_telegram(mensagem):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -41,7 +38,6 @@ def enviar_telegram(mensagem):
     except Exception as e:
         print(f"❌ Erro no envio para Telegram: {e}")
 
-
 def obter_pares_bitunix():
     try:
         response = session_bitunix.get(BITUNIX_PAIRS_URL, timeout=TIMEOUT)
@@ -52,7 +48,6 @@ def obter_pares_bitunix():
     except Exception as e:
         print("❌ Erro ao buscar pares Bitunix:", e)
     return []
-
 
 def obter_funding_bitunix(symbol):
     try:
@@ -69,7 +64,6 @@ def obter_funding_bitunix(symbol):
     except:
         pass
     return None
-
 
 def obter_funding_binance(symbol):
     try:
@@ -104,10 +98,8 @@ def obter_funding_binance(symbol):
         pass
     return None, None
 
-
 def gerar_link_historico_binance(symbol):
     return "https://www.binance.com/en/futures/funding-history/perpetual/funding-fee-history"
-
 
 def comparar_funding(symbol):
     try:
@@ -122,9 +114,7 @@ def comparar_funding(symbol):
         pass
     return None
 
-
 def main():
-    global moedas_ordenadas
     print("🔍 Buscando pares disponíveis na Bitunix...")
     pares_bitunix = obter_pares_bitunix()
     print(f"✅ {len(pares_bitunix)} pares encontrados.\n")
@@ -143,7 +133,6 @@ def main():
         tabela = PrettyTable()
         tabela.field_names = ["#", "Moeda", "Bitunix (%)", "Binance (%)", "Diferença (%)", "Próx. Funding Binance"]
 
-        moedas_ordenadas = []
         mensagem_telegram = "🚀 <b>ARBITRAGEM DE FUNDING DETECTADA</b> 🚀\n\n"
 
         for i, (symbol, fund_btx, fund_bnb, diff, horario_funding) in enumerate(
@@ -157,7 +146,6 @@ def main():
                 f"{AZUL}{diff:.6f}{RESET}",
                 horario_funding
             ])
-            moedas_ordenadas.append(symbol)
 
             link_bitunix = f"https://www.bitunix.com/pt-br/contract-trade/{symbol}/fund-fee"
             link_binance = gerar_link_historico_binance(symbol)
@@ -173,22 +161,12 @@ def main():
 
         print(tabela)
 
-        print("\n🔗 Links das moedas com arbitragem detectada:\n")
-        for idx, symbol in enumerate(moedas_ordenadas, start=1):
-            link_bitunix = f"https://www.bitunix.com/pt-br/contract-trade/{symbol}/fund-fee"
-            link_binance = gerar_link_historico_binance(symbol)
-            print(f"{idx}. {symbol}")
-            print(f"   Bitunix: {link_bitunix}")
-            print(f"   Binance: {link_binance}\n")
-
         # Enviar mensagem no Telegram
         enviar_telegram(mensagem_telegram)
 
     else:
-        moedas_ordenadas = []
         print("⚠️ Nenhuma arbitragem acima de 0.02% foi detectada.")
         enviar_telegram("⚠️ Nenhuma arbitragem acima de 0.02% foi detectada no momento.")
-
 
 if __name__ == "__main__":
     while True:
